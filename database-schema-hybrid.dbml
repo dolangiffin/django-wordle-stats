@@ -1,0 +1,130 @@
+// Hybrid Wordle Stats Database Schema
+// Combines simplicity with performance optimization capabilities
+// Start with core tables, add caching layer when needed
+
+// ==========================================
+// CORE TABLES - Essential for MVP
+// ==========================================
+
+Table users {
+  id uuid [primary key, default: `gen_random_uuid()`]
+  name text [not null]
+  email text [unique, not null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    email [unique]
+  }
+}
+
+Table wordle_words {
+  id integer [primary key, increment]
+  game_date date [unique, not null, note: 'The date of the Wordle puzzle']
+  wordle_number integer [unique, not null, note: 'Official Wordle puzzle number']
+  word varchar(5) [not null, note: 'The 5-letter solution word']
+
+  indexes {
+    game_date [unique]
+    wordle_number [unique]
+  }
+}
+
+Table scores {
+  id uuid [primary key, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  wordle_word_id integer [ref: > wordle_words.id, not null]
+  guesses integer [not null, note: '1-6 for success, 7 for DNF']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, wordle_word_id) [unique] // One score per user per puzzle
+    user_id
+    wordle_word_id
+    guesses // For finding all 2's, etc.
+  }
+
+  Note: 'Immutable once created - no updates allowed'
+}
+
+// ==========================================
+// OPTIONAL PERFORMANCE OPTIMIZATION
+// Add this table when dashboard becomes slow
+// ==========================================
+
+Table user_stats_cache {
+  id uuid [primary key, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  period_type text [not null, note: 'week, month, year, or all_time']
+  period_year integer [note: 'NULL for all_time stats']
+  period_value integer [note: 'Week number (1-53) for weekly, month (1-12) for monthly, NULL for yearly/all_time']
+
+  // Core statistics
+  games_played integer [default: 0]
+  games_solved integer [default: 0]
+  games_failed integer [default: 0]
+  total_guesses integer [default: 0, note: 'Sum of all guesses for average calculation']
+  average_guesses decimal(3,2)
+  best_score integer [note: 'Lowest guess count in period']
+
+  // Guess distribution stored as JSON for flexibility
+  // Example: {"1": 5, "2": 12, "3": 20, "4": 15, "5": 8, "6": 3, "7": 2}
+  distribution jsonb [note: 'JSON object with guess counts']
+
+  // For competitive stats (populated for weekly/monthly)
+  is_winner boolean [default: false, note: 'Won this period against other users']
+
+  // Cache management
+  last_updated timestamp [default: `now()`]
+
+  indexes {
+    (user_id, period_type, period_year, period_value) [unique]
+    user_id
+    period_type
+    period_year
+    last_updated
+  }
+
+  Note: 'Refresh cache if last_updated > 24 hours for recent periods'
+}
+
+// ==========================================
+// IMPLEMENTATION NOTES
+// ==========================================
+
+// 1. START SIMPLE:
+//    - Begin with just users, wordle_words, and scores tables
+//    - Use SQL queries for all statistics initially
+//
+// 2. EXAMPLE QUERIES (without cache):
+//
+//    Weekly average (Sunday-Saturday):
+//    SELECT AVG(guesses) FROM scores s
+//    JOIN wordle_words w ON s.wordle_word_id = w.id
+//    WHERE s.user_id = ?
+//    AND w.game_date >= date_trunc('week', CURRENT_DATE)
+//
+//    Most 2's:
+//    SELECT COUNT(*) FROM scores
+//    WHERE user_id = ? AND guesses = 2
+//
+//    Best day of week:
+//    SELECT EXTRACT(DOW FROM w.game_date) as day, AVG(s.guesses)
+//    FROM scores s JOIN wordle_words w ON s.wordle_word_id = w.id
+//    WHERE s.user_id = ?
+//    GROUP BY day ORDER BY AVG(s.guesses)
+//
+// 3. ADD CACHING WHEN NEEDED:
+//    - If dashboard load time > 500ms
+//    - If you have > 10 active users
+//    - If running stats queries frequently
+//
+// 4. CACHE STRATEGY:
+//    - Update cache on new score insertion
+//    - Use Django signals or Supabase triggers
+//    - Check cache age, refresh if stale
+//    - Current week/month: refresh frequently
+//    - Historical periods: cache indefinitely
+//
+// 5. COMPETITIVE STATS:
+//    - Calculate weekly/monthly winners during cache update
+//    - Store is_winner flag for easy leaderboard queries

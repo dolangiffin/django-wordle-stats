@@ -1,0 +1,21 @@
+# Core Django
+Django==5.0.1
+python-decouple==3.8
+
+# Database
+psycopg2-binary==2.9.9
+
+# Supabase (optional, for auth/storage features)
+supabase==2.3.4
+
+# API (optional, for future REST endpoints)
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+
+# Development
+django-debug-toolbar==4.2.0
+ipython==8.19.0
+
+# Production
+gunicorn==21.2.0
+whitenoise==6.6.0
