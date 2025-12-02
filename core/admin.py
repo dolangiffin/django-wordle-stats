@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Avg, Count, Sum
 from django.utils.html import format_html
 from .models import User, WordleWord, Score, UserStatsCache
 
@@ -6,25 +7,41 @@ from .models import User, WordleWord, Score, UserStatsCache
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     """Admin interface for User model"""
-    list_display = ('name', 'email', 'created_at', 'total_games', 'average_score')
+    list_display = ('name', 'email', 'created_at', 'total_games', 'total_guesses', 'average_score')
     list_filter = ('created_at',)
     search_fields = ('name', 'email')
     readonly_fields = ('id', 'created_at')
     ordering = ('-created_at',)
 
+    def get_queryset(self, request):
+        """Annotate queryset with stats for sorting"""
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            num_games=Count('scores'),
+            sum_guesses=Sum('scores__guesses'),
+            avg_score=Avg('scores__guesses')
+        )
+        return queryset
+
     def total_games(self, obj):
         """Display total games played by user"""
-        return obj.scores.count()
+        return obj.num_games
     total_games.short_description = 'Games Played'
+    total_games.admin_order_field = 'num_games'
+
+    def total_guesses(self, obj):
+        """Display total guesses by user"""
+        return obj.sum_guesses or 0
+    total_guesses.short_description = 'Total Guesses'
+    total_guesses.admin_order_field = 'sum_guesses'
 
     def average_score(self, obj):
         """Display user's average score"""
-        scores = obj.scores.all()
-        if scores:
-            avg = sum(s.guesses for s in scores) / len(scores)
-            return f"{avg:.2f}"
+        if obj.avg_score is not None:
+            return f"{obj.avg_score:.2f}"
         return "-"
     average_score.short_description = 'Avg Score'
+    average_score.admin_order_field = 'avg_score'
 
 
 @admin.register(WordleWord)
@@ -37,19 +54,28 @@ class WordleWordAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     date_hierarchy = 'game_date'
 
+    def get_queryset(self, request):
+        """Annotate queryset with average score for sorting"""
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            avg_score=Avg('scores__guesses'),
+            num_players=Count('scores')
+        )
+        return queryset
+
     def players_count(self, obj):
         """Display how many users played this puzzle"""
-        return obj.scores.count()
+        return obj.num_players
     players_count.short_description = 'Players'
+    players_count.admin_order_field = 'num_players'
 
     def average_score(self, obj):
         """Display average score for this puzzle"""
-        scores = obj.scores.all()
-        if scores:
-            avg = sum(s.guesses for s in scores) / len(scores)
-            return f"{avg:.2f}"
+        if obj.avg_score is not None:
+            return f"{obj.avg_score:.2f}"
         return "-"
     average_score.short_description = 'Avg Score'
+    average_score.admin_order_field = 'avg_score'
 
 
 @admin.register(Score)
