@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Wordle Stats{% endblock %}
+
+{% block content %}
+<h1 class="text-3xl font-bold text-gray-800 mb-8">Wordle Stats Dashboard</h1>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Total Players Card -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="text-gray-500 text-sm uppercase tracking-wide">Total Players</div>
+        <div class="text-3xl font-bold text-gray-800 mt-2">{{ total_players }}</div>
+    </div>
+
+    <!-- Total Games Card -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="text-gray-500 text-sm uppercase tracking-wide">Games Played</div>
+        <div class="text-3xl font-bold text-gray-800 mt-2">{{ total_games }}</div>
+    </div>
+
+    <!-- Average Score Card -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="text-gray-500 text-sm uppercase tracking-wide">Average Score</div>
+        <div class="text-3xl font-bold text-gray-800 mt-2">
+            {% if overall_average %}
+                {{ overall_average }}
+            {% else %}
+                --
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Leaderboard -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-800">Leaderboard</h2>
+        <p class="text-gray-500 text-sm">Top 5 players by average score</p>
+    </div>
+
+    {% if leaderboard %}
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Games</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Score</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for player in leaderboard %}
+                <tr class="{% if forloop.first %}bg-yellow-50{% endif %}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if forloop.counter == 1 %}
+                            <span class="text-2xl">🥇</span>
+                        {% elif forloop.counter == 2 %}
+                            <span class="text-2xl">🥈</span>
+                        {% elif forloop.counter == 3 %}
+                            <span class="text-2xl">🥉</span>
+                        {% else %}
+                            <span class="text-gray-500 font-medium">{{ forloop.counter }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                        {{ player.name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                        {{ player.games_played }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if player.avg_score %}
+                            <span class="{% if player.avg_score <= 3 %}text-green-600{% elif player.avg_score <= 4 %}text-yellow-600{% else %}text-red-600{% endif %} font-medium">
+                                {{ player.avg_score|floatformat:2 }}
+                            </span>
+                        {% else %}
+                            <span class="text-gray-400">--</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">
+            <p>No games played yet. Check back soon!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
